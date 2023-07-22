@@ -1,73 +1,61 @@
-// create web server with express
-const express = require('express');
-const app = express();
-// use body-parser to parse the body of the HTTP request
-const bodyParser = require('body-parser');
-app.use(bodyParser.json());
-// use cors to allow cross origin resource sharing
-const cors = require('cors');
-app.use(cors());
-// use mongoose to connect to mongodb
-const mongoose = require('mongoose');
-// connect to the database
-mongoose.connect('mongodb://localhost:27017/comments', { useNewUrlParser: true });
-// create schema for comments
-const commentSchema = new mongoose.Schema({
-    name: String,
-    comment: String
-});
-// create model for comments
-const Comment = mongoose.model('Comment', commentSchema);
-// create a new comment
-app.post('/comment', async (req, res) => {
-    const comment = new Comment({
-        name: req.body.name,
-        comment: req.body.comment
+//create web server
+var express = require('express');
+var router = express.Router();
+var comments = require('../models/comments');
+
+//get comments
+router.get('/', function(req, res, next) {
+    comments.getAll(function(err, rows) {
+        if (err) {
+            res.json(err);
+        } else {
+            res.json(rows);
+        }
     });
-    try {
-        await comment.save();
-        res.send(comment);
-    } catch (error) {
-        console.log(error);
-        res.sendStatus(500);
-    }
 });
-// get all comments
-app.get('/comments', async (req, res) => {
-    try {
-        let comments = await Comment.find();
-        res.send(comments);
-    } catch (error) {
-        console.log(error);
-        res.sendStatus(500);
-    }
+
+//get comments by id
+router.get('/:id?', function(req, res, next) {
+    comments.getById(req.params.id, function(err, rows) {
+        if (err) {
+            res.json(err);
+        } else {
+            res.json(rows);
+        }
+    });
 });
-// delete a comment
-app.delete('/comments/:id', async (req, res) => {
-    try {
-        await Comment.deleteOne({
-            _id: req.params.id
-        });
-        res.sendStatus(200);
-    } catch (error) {
-        console.log(error);
-        res.sendStatus(500);
-    }
+
+//add comments
+router.post('/', function(req, res, next) {
+    comments.add(req.body, function(err, count) {
+        if (err) {
+            res.json(err);
+        } else {
+            res.json(req.body);
+        }
+    });
 });
-// update a comment
-app.put('/comments/:id', async (req, res) => {
-    try {
-        let comment = await Comment.findOne({
-            _id: req.params.id
-        });
-        comment.name = req.body.name;
-        comment.comment = req.body.comment;
-        await comment.save();
-        res.sendStatus(200);
-    } catch (error) {
-        console.log(error);
-        res.sendStatus(500);
-    }
+
+//delete comments
+router.delete('/:id?', function(req, res, next) {
+    comments.delete(req.params.id, function(err, count) {
+        if (err) {
+            res.json(err);
+        } else {
+            res.json(count);
+        }
+    });
 });
-// listen on port 3000
-app.listen(3000, () => console.log('Server listening on port 3000!'));
+
+//update comments
+router.put('/:id?', function(req, res, next) {
+    comments.update(req.params.id, req.body, function(err, rows) {
+        if (err) {
+            res.json(err);
+        } else {
+            res.json(rows);
+        }
+    });
+});
+
+module.exports = router;
