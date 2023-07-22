@@ -1,49 +1,73 @@
-// create web server
-// run: node comments.js
-// to test: curl -X POST -H "Content-Type: application/json" -d '{"text":"hello"}' http://localhost:3000/comments
-const http = require('http');
-const url = require('url');
+// create web server with express
+const express = require('express');
+const app = express();
+// use body-parser to parse the body of the HTTP request
 const bodyParser = require('body-parser');
-
-const comments = [];
-comments.push({text: "hello", id: 0});
-comments.push({text: "world", id: 1});
-
-const server = http.createServer((req, res) => {
-  if (req.method === 'GET') {
-    const parsedUrl = url.parse(req.url, true);
-    const query = parsedUrl.query;
-    const id = parseInt(query.id, 10);
-    if (isNaN(id)) {
-      res.statusCode = 400;
-      res.end('Bad Request');
-      return;
-    }
-    const comment = comments.find(comment => comment.id === id);
-    if (comment === undefined) {
-      res.statusCode = 404;
-      res.end('Not Found');
-      return;
-    }
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify(comment));
-  } else if (req.method === 'POST') {
-    bodyParser.json()(req, res, () => {
-      const comment = req.body;
-      if (comment.text === undefined) {
-        res.statusCode = 400;
-        res.end('Bad Request');
-        return;
-      }
-      comment.id = comments.length;
-      comments.push(comment);
-      res.end('OK');
-    });
-  } else {
-    res.statusCode = 405;
-    res.end('Method Not Allowed');
-  }
+app.use(bodyParser.json());
+// use cors to allow cross origin resource sharing
+const cors = require('cors');
+app.use(cors());
+// use mongoose to connect to mongodb
+const mongoose = require('mongoose');
+// connect to the database
+mongoose.connect('mongodb://localhost:27017/comments', { useNewUrlParser: true });
+// create schema for comments
+const commentSchema = new mongoose.Schema({
+    name: String,
+    comment: String
 });
-
-server.listen(3000);
-console.log('Server running at http://localhost:3000/'); 
+// create model for comments
+const Comment = mongoose.model('Comment', commentSchema);
+// create a new comment
+app.post('/comment', async (req, res) => {
+    const comment = new Comment({
+        name: req.body.name,
+        comment: req.body.comment
+    });
+    try {
+        await comment.save();
+        res.send(comment);
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500);
+    }
+});
+// get all comments
+app.get('/comments', async (req, res) => {
+    try {
+        let comments = await Comment.find();
+        res.send(comments);
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500);
+    }
+});
+// delete a comment
+app.delete('/comments/:id', async (req, res) => {
+    try {
+        await Comment.deleteOne({
+            _id: req.params.id
+        });
+        res.sendStatus(200);
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500);
+    }
+});
+// update a comment
+app.put('/comments/:id', async (req, res) => {
+    try {
+        let comment = await Comment.findOne({
+            _id: req.params.id
+        });
+        comment.name = req.body.name;
+        comment.comment = req.body.comment;
+        await comment.save();
+        res.sendStatus(200);
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500);
+    }
+});
+// listen on port 3000
+app.listen(3000, () => console.log('Server listening on port 3000!'));
